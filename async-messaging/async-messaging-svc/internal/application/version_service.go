@@ -3,10 +3,10 @@ package application
 import (
 	"context"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/config"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/config"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
-	"github.com/FrancoRebollo/api-integration-svc/internal/ports"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/ports"
 )
 
 type VersionService struct {

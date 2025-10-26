@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	httpin "github.com/FrancoRebollo/api-integration-svc/internal/adapters/in/http"
-	pg "github.com/FrancoRebollo/api-integration-svc/internal/adapters/out/postgres"
-	"github.com/FrancoRebollo/api-integration-svc/internal/application"
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/config"
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/logger"
+	httpin "github.com/FrancoRebollo/async-messaging-svc/internal/adapters/in/http"
+	pg "github.com/FrancoRebollo/async-messaging-svc/internal/adapters/out/postgres"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/out/rabbitmq"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/application"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/config"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/logger"
 )
 
 func main() {
@@ -39,25 +40,36 @@ func main() {
 	}
 
 	// 3) Repositorios (adapters out)
-	//    Si tus constructores reales difieren, cambiá estas 2 líneas únicamente:
-	versionRepository := pg.NewVersionRepository(*dbPostgres)        // <- AJUSTAR si tu firma real difiere
-	healthcheckRepository := pg.NewHealthcheckRepository(dbPostgres) // <- AJUSTAR si tu firma real difiere
+	versionRepository := pg.NewVersionRepository(*dbPostgres)
+	healthcheckRepository := pg.NewHealthcheckRepository(dbPostgres)
+	messageRepository := pg.NewMessageRepository(dbPostgres)
 
-	// 4) Servicios (application)
-	versionService := application.NewVersionService(versionRepository, *cfg.App)             // <- AJUSTAR a tu firma real
-	healthcheckService := application.NewHealthcheckService(healthcheckRepository, *cfg.App) // <- AJUSTAR a tu firma real
+	// 4) RabbitMQ queues (adapters out)
+	amqpURL := os.Getenv("RABBITMQ_URL")
+	rabbitMQAdapter, err := rabbitmq.NewRabbitMQAdapter(amqpURL, "user.events")
 
-	// 5) Handlers (adapters in/http)
-	versionHandler := httpin.NewVersionHandler(versionService) // debe cumplir la interface del router
+	if err != nil {
+		logger.LoggerError().Errorf("No se pudo iniciar cola de mensajeria: %s", err.Error())
+		os.Exit(1)
+	}
+
+	// 5) Servicios (application)
+	versionService := application.NewVersionService(versionRepository, *cfg.App)
+	healthcheckService := application.NewHealthcheckService(healthcheckRepository, *cfg.App)
+	messageService := application.NewMessageService(messageRepository, rabbitMQAdapter, *cfg.App)
+
+	// 6) Handlers (adapters in/http)
+	versionHandler := httpin.NewVersionHandler(versionService)
 	healthcheckHandler := httpin.NewHealthcheckHandler(healthcheckService)
+	messageHandler := httpin.NewMessageHandler(messageService)
 
-	// 6) Router
-	rt, err := httpin.NewRouter(cfg.HTTP, versionHandler, *healthcheckHandler)
+	// 7) Router
+	rt, err := httpin.NewRouter(cfg.HTTP, versionHandler, *healthcheckHandler, *messageHandler)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	// 7) Server
+	// 8) Server
 	address := fmt.Sprintf("%s:%s", cfg.HTTP.Url, cfg.HTTP.Port)
 	if err := rt.Listen(address); err != nil {
 		logger.LoggerError().Errorf("No se pudo iniciar el servidor: %s", err.Error())

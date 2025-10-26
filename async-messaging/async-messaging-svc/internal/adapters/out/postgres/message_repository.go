@@ -2,24 +2,22 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
 	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/logger"
 )
 
-type HealthcheckRepository struct {
+type MessageRepository struct {
 	dbPost *PostgresDB
 }
 
-func NewHealthcheckRepository(dbPost *PostgresDB) *HealthcheckRepository {
-	return &HealthcheckRepository{
+func NewMessageRepository(dbPost *PostgresDB) *MessageRepository {
+	return &MessageRepository{
 		dbPost: dbPost,
 	}
 }
 
-func (hr *HealthcheckRepository) GetDatabasesPing(ctx context.Context) ([]domain.Database, error) {
+func (hr *MessageRepository) GetDatabasesPing(ctx context.Context) ([]domain.Database, error) {
 	databases := []domain.Database{}
 	var fechaUltimaActividad string
 	var mappedErr error
@@ -61,15 +59,7 @@ func (hr *HealthcheckRepository) GetDatabasesPing(ctx context.Context) ([]domain
 	return databases, nil
 }
 
-func getRepoErr(err error) error {
-	if errors.Is(err, domain.ErrDeadlockDetected) {
-		return fmt.Errorf("%w: error de healthcheck repository: %s", domain.ErrDeadlockDetected, err.Error())
-	} else if errors.Is(err, domain.ErrTableOrViewDoesNotExist) {
-		return fmt.Errorf("%w: error de healthcheck repository: %s", domain.ErrTableOrViewDoesNotExist, err.Error())
-	} else if errors.Is(err, domain.ErrEndOfCommunication) {
-		return fmt.Errorf("%w: error de healthcheck repository: %s", domain.ErrEndOfCommunication, err.Error())
-	} else if errors.Is(err, domain.ErrConnectionTimeout) {
-		return fmt.Errorf("%w: error de healthcheck repository: %s", domain.ErrConnectionTimeout, err.Error())
-	}
-	return fmt.Errorf("%w: error de healthcheck repository: %s", domain.ErrInternalServer, err.Error())
+func (hr *MessageRepository) PushEventToQueue(ctx context.Context, reqEvent domain.Event) error {
+
+	return nil
 }

@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/adapters/in/http/validators"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/in/http/validators"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/logger"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/logger"
 
 	"github.com/gin-gonic/gin"
 )

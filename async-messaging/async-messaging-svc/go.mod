@@ -1,4 +1,4 @@
-module github.com/FrancoRebollo/api-integration-svc
+module github.com/FrancoRebollo/async-messaging-svc
 
 go 1.23
 
@@ -6,6 +6,7 @@ require (
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/lib/pq v1.10.9
+	github.com/streadway/amqp v1.1.0
 )
 
 require (

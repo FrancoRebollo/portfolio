@@ -10,10 +10,10 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/adapters/in/http/middlewares"
-	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/config"
-	configconstants "github.com/FrancoRebollo/api-integration-svc/internal/platform/config/constants"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/in/http/middlewares"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/config"
+	configconstants "github.com/FrancoRebollo/async-messaging-svc/internal/platform/config/constants"
 )
 
 // Interfaces mínimas que deben cumplir tus handlers
@@ -29,6 +29,7 @@ func NewRouter(
 	cfg *config.HTTP,
 	versionHandler VersionHandler,
 	healthcheckHandler HealthcheckHandler,
+	messageHandler MessageHandler,
 ) (*Router, error) {
 
 	// Modo
@@ -58,6 +59,10 @@ func NewRouter(
 		// Version
 		api.Group("/version").
 			GET("", versionHandler.GetVersion)
+
+		// Push Message
+		api.Group("/push-event").
+			POST("", messageHandler.PushEventToQueue)
 
 		// Healthcheck
 		api.Group("/healthcheck").

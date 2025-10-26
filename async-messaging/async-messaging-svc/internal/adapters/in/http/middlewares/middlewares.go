@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"net/http"
 
-	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
-	"github.com/FrancoRebollo/api-integration-svc/internal/platform/logger"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/logger"
 
 	"github.com/gin-gonic/gin"
 )
