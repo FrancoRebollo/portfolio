@@ -100,3 +100,12 @@ func (p *PostgresDB) MapPostgresError(err error) error {
 	}
 	return err
 }
+
+func (p *PostgresDB) Close() error {
+	fmt.Println("🧹 Cerrando conexión a Postgres...")
+	if p.db != nil {
+		return p.db.Close()
+	}
+	fmt.Println("✅ Postgres cerrado")
+	return nil
+}

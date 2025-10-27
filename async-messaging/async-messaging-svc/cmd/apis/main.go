@@ -1,78 +1,145 @@
-// cmd/apis/main.go
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	httpin "github.com/FrancoRebollo/async-messaging-svc/internal/adapters/in/http"
 	pg "github.com/FrancoRebollo/async-messaging-svc/internal/adapters/out/postgres"
-	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/out/rabbitmq"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/rabbitmq"
 	"github.com/FrancoRebollo/async-messaging-svc/internal/application"
 	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/config"
-	"github.com/FrancoRebollo/async-messaging-svc/internal/platform/logger"
+	"github.com/FrancoRebollo/async-messaging-svc/internal/ports"
 )
 
 func main() {
-	// 1) Configuración
+	fmt.Println("➡️  Iniciando main()")
+
+	// 1️⃣ Configuración global
+	fmt.Println("📦 Cargando configuración global...")
 	cfg, err := config.GetGlobalConfiguration()
 	if err != nil {
-		logger.LoggerError().Error(err)
+		fmt.Println("❌ Error en configuración:", err)
 		os.Exit(1)
 	}
+	fmt.Println("✅ Configuración cargada correctamente")
 
-	// 2) Conexiones a bases de datos (según cfg.DB[*].Connection)
+	// 2️⃣ Conexión a Postgres
+	fmt.Println("🐘 Conectando a Postgres...")
 	var dbPostgres *pg.PostgresDB
-
 	for _, conf := range cfg.DB {
-		switch conf.Connection {
-		case "POSTGRES":
+		fmt.Println("🔍 Probando conexión:", conf.Connection)
+		if conf.Connection == "POSTGRES" {
 			dbPostgres, err = pg.GetInstance(conf)
 			if err != nil {
-				logger.LoggerError().Errorf("Error conectando a Postgres: %s", err)
+				fmt.Println("❌ Error conectando a Postgres:", err)
 				os.Exit(1)
 			}
 		}
 	}
+	defer dbPostgres.Close()
+	fmt.Println("✅ Conexión a Postgres exitosa")
 
-	if dbPostgres != nil {
-		logger.LoggerInfo().Info("Conexión a Postgres exitosa")
-	}
-
-	// 3) Repositorios (adapters out)
+	// 3️⃣ Inicialización de repositorios
+	fmt.Println("🧩 Inicializando repositorios...")
 	versionRepository := pg.NewVersionRepository(*dbPostgres)
 	healthcheckRepository := pg.NewHealthcheckRepository(dbPostgres)
 	messageRepository := pg.NewMessageRepository(dbPostgres)
+	fmt.Println("✅ Repositorios inicializados")
 
-	// 4) RabbitMQ queues (adapters out)
+	// 4️⃣ RabbitMQ adapter (outbound port)
+	fmt.Println("🐇 Iniciando conexión a RabbitMQ...")
 	amqpURL := os.Getenv("RABBITMQ_URL")
+	fmt.Println("🔗 URL RabbitMQ:", amqpURL)
 	rabbitMQAdapter, err := rabbitmq.NewRabbitMQAdapter(amqpURL, "user.events")
-
 	if err != nil {
-		logger.LoggerError().Errorf("No se pudo iniciar cola de mensajeria: %s", err.Error())
+		fmt.Println("❌ Error iniciando RabbitMQ:", err)
+		os.Exit(1)
+	}
+	defer rabbitMQAdapter.Close()
+	fmt.Println("✅ RabbitMQ inicializado correctamente")
+
+	if err = rabbitMQAdapter.InitializeTopology(); err != nil {
+		fmt.Println("❌ Error iniciando Topologia de colas:", err)
 		os.Exit(1)
 	}
 
-	// 5) Servicios (application)
+	var messageQueue ports.MessageQueue = rabbitMQAdapter
+
+	// 5️⃣ Contexto con cancelación
+	fmt.Println("⚙️  Creando contexto de cancelación...")
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Goroutine para señales del sistema
+	go func() {
+		fmt.Println("🕹️  Escuchando señales del sistema...")
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+		fmt.Println("🛑 Señal recibida, cerrando servicios...")
+		cancel()
+	}()
+
+	// 6️⃣ Consumer RabbitMQ
+	/*
+		fmt.Println("📨 Lanzando consumer de RabbitMQ en goroutine...")
+		go func() {
+			fmt.Println("➡️  Iniciando consumo de mensajes...")
+			_, err := messageQueue.PullEventFromQueue(ctx)
+			if err != nil {
+				fmt.Println("❌ Error consumiendo mensajes:", err)
+			}
+		}()
+	*/
+	// 7️⃣ Servicios de aplicación
+	fmt.Println("🧠 Creando servicios de aplicación...")
 	versionService := application.NewVersionService(versionRepository, *cfg.App)
 	healthcheckService := application.NewHealthcheckService(healthcheckRepository, *cfg.App)
-	messageService := application.NewMessageService(messageRepository, rabbitMQAdapter, *cfg.App)
+	messageService := application.NewMessageService(messageRepository, messageQueue, *cfg.App)
+	fmt.Println("✅ Servicios creados")
 
-	// 6) Handlers (adapters in/http)
+	// 8️⃣ Handlers HTTP
+	fmt.Println("🌐 Inicializando handlers HTTP...")
 	versionHandler := httpin.NewVersionHandler(versionService)
 	healthcheckHandler := httpin.NewHealthcheckHandler(healthcheckService)
 	messageHandler := httpin.NewMessageHandler(messageService)
+	fmt.Println("✅ Handlers listos")
 
-	// 7) Router
+	// 9️⃣ Router
+	fmt.Println("🛣️  Creando router HTTP...")
 	rt, err := httpin.NewRouter(cfg.HTTP, versionHandler, *healthcheckHandler, *messageHandler)
 	if err != nil {
-		fmt.Println(err)
-	}
-
-	// 8) Server
-	address := fmt.Sprintf("%s:%s", cfg.HTTP.Url, cfg.HTTP.Port)
-	if err := rt.Listen(address); err != nil {
-		logger.LoggerError().Errorf("No se pudo iniciar el servidor: %s", err.Error())
+		fmt.Println("❌ Error creando router:", err)
 		os.Exit(1)
 	}
+	fmt.Println("✅ Router creado correctamente")
+
+	srv := &http.Server{
+		Addr:    fmt.Sprintf("%s:%s", cfg.HTTP.Url, cfg.HTTP.Port),
+		Handler: rt, // el router de Gin
+	}
+
+	go func() {
+		fmt.Println("🚀 Iniciando servidor HTTP en", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Println("❌ Error al iniciar servidor:", err)
+			os.Exit(1)
+		}
+	}()
+	/*
+		// 🔟 Servidor HTTP
+		address := fmt.Sprintf("%s:%s", cfg.HTTP.Url, cfg.HTTP.Port)
+		fmt.Println("🚀 Iniciando servidor HTTP en", address)
+		if err := rt.Listen(address); err != nil {
+			fmt.Println("❌ Error al iniciar servidor:", err)
+			os.Exit(1)
+		}
+	*/
+	fmt.Println("⌛ Esperando ctx.Done()...")
+	<-ctx.Done()
+	fmt.Println("✅ Microservicio finalizado correctamente")
 }

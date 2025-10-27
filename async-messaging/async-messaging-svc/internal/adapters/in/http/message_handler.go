@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/FrancoRebollo/async-messaging-svc/internal/adapters/in/http/dto"
 	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
@@ -47,13 +46,12 @@ func (hh *MessageHandler) PushEventToQueue(c *gin.Context) {
 	}
 
 	domainEvent := domain.Event{
-		EventId:      reqPushEvent.EventId,
-		EventOrigin:  reqPushEvent.EventOrigin,
-		EventDestiny: reqPushEvent.EventDestiny,
-		EventType:    reqPushEvent.EventType,
-		Payload:      reqPushEvent.Payload,
-		Status:       "PENDING",  // por defecto
-		CreatedAt:    time.Now(), // 🕒 asigna la fecha/hora actual
+		ID:         reqPushEvent.ID,
+		Type:       reqPushEvent.Type,
+		RoutingKey: reqPushEvent.RoutingKey,
+		Origin:     reqPushEvent.Origin,
+		Timestamp:  reqPushEvent.Timestamp,
+		Payload:    reqPushEvent.Payload, // por defecto
 	}
 
 	err := hh.serv.PushEventToQueueAPI(ctx, domainEvent)
