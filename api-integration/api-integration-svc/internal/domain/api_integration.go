@@ -1,10 +1,6 @@
 package domain
 
-type Event struct {
-	IdEvent      int
-	EventType    string
-	EventContent string
-}
+import "time"
 
 type ExternalAPIRequest struct {
 	Method string
@@ -17,4 +13,13 @@ type ExternalAPIResponse struct {
 	Status     string
 	StatusCode int
 	Data       any
+}
+
+type Event struct {
+	ID         string
+	Type       string
+	RoutingKey string
+	Origin     string
+	Timestamp  time.Time
+	Payload    interface{}
 }

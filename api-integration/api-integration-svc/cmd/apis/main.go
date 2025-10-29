@@ -9,9 +9,11 @@ import (
 
 	httpin "github.com/FrancoRebollo/api-integration-svc/internal/adapters/in/http"
 	pg "github.com/FrancoRebollo/api-integration-svc/internal/adapters/out/postgres"
+	"github.com/FrancoRebollo/api-integration-svc/internal/adapters/rabbitmq"
 	"github.com/FrancoRebollo/api-integration-svc/internal/application"
 	"github.com/FrancoRebollo/api-integration-svc/internal/platform/config"
 	"github.com/FrancoRebollo/api-integration-svc/internal/platform/logger"
+	"github.com/FrancoRebollo/api-integration-svc/internal/ports"
 )
 
 func main() {
@@ -50,10 +52,23 @@ func main() {
 	healthcheckRepository := pg.NewHealthcheckRepository(dbPostgres) // <- AJUSTAR si tu firma real difiere
 	apiIntegrationRepository := pg.NewApiIntegrationRepository(dbPostgres)
 
+	fmt.Println("🐇 Iniciando conexión a RabbitMQ...")
+	amqpURL := os.Getenv("RABBITMQ_URL")
+	fmt.Println("🔗 URL RabbitMQ:", amqpURL)
+	rabbitMQAdapter, err := rabbitmq.NewRabbitMQAdapter(amqpURL, os.Getenv("RABBITMQ_QUEUE_EXCHANGE"))
+	if err != nil {
+		fmt.Println("❌ Error iniciando RabbitMQ:", err)
+		os.Exit(1)
+	}
+	defer rabbitMQAdapter.Close()
+	fmt.Println("✅ RabbitMQ inicializado correctamente")
+
+	var messageQueue ports.MessageQueue = rabbitMQAdapter
+
 	// 4) Servicios (application)
 	versionService := application.NewVersionService(versionRepository, *cfg.App)             // <- AJUSTAR a tu firma real
 	healthcheckService := application.NewHealthcheckService(healthcheckRepository, *cfg.App) // <- AJUSTAR a tu firma real
-	apiIntegrationService := application.NewApiIntegrationService(apiIntegrationRepository, *cfg.App, httpClient)
+	apiIntegrationService := application.NewApiIntegrationService(apiIntegrationRepository, *cfg.App, messageQueue, httpClient)
 
 	// 5) Handlers (adapters in/http)
 	versionHandler := httpin.NewVersionHandler(versionService) // debe cumplir la interface del router

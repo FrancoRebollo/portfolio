@@ -19,6 +19,19 @@ import (
 func main() {
 	fmt.Println("➡️  Iniciando main()")
 
+	if len(os.Args) > 1 && os.Args[1] == "--healthcheck" {
+		resp, err := http.Get("http://localhost:3003/api/healthcheck")
+		if err != nil {
+			fmt.Println("Healthcheck error:", err)
+			os.Exit(1)
+		}
+		if resp.StatusCode != http.StatusOK {
+			fmt.Println("Healthcheck failed with status:", resp.StatusCode)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// 1️⃣ Configuración global
 	fmt.Println("📦 Cargando configuración global...")
 	cfg, err := config.GetGlobalConfiguration()
@@ -55,7 +68,7 @@ func main() {
 	fmt.Println("🐇 Iniciando conexión a RabbitMQ...")
 	amqpURL := os.Getenv("RABBITMQ_URL")
 	fmt.Println("🔗 URL RabbitMQ:", amqpURL)
-	rabbitMQAdapter, err := rabbitmq.NewRabbitMQAdapter(amqpURL, "user.events")
+	rabbitMQAdapter, err := rabbitmq.NewRabbitMQAdapter(amqpURL)
 	if err != nil {
 		fmt.Println("❌ Error iniciando RabbitMQ:", err)
 		os.Exit(1)

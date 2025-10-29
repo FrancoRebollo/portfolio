@@ -44,29 +44,38 @@ CREATE TABLE asyn_m.version_modelo (
 
 
 CREATE TABLE asyn_m.message_event (
-    id_event            SERIAL PRIMARY KEY,
-    source_system       VARCHAR(100) NOT NULL,
-    queue_name          VARCHAR(100) NOT NULL,
-    payload             JSONB NOT NULL,
-    status              VARCHAR(20) DEFAULT 'RECEIVED' NOT NULL,  -- RECEIVED | QUEUED | SENT | ERROR
-    error_msg           TEXT,
-    fecha_recepcion     TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    fecha_envio         TIMESTAMP,
-    fecha_last_update   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    actualizado_por     VARCHAR(50) DEFAULT 'SYSTEM' NOT NULL
+    id_event        VARCHAR(50) PRIMARY KEY,
+    source_system   VARCHAR(50) NOT NULL,
+    destiny_system      VARCHAR(50) NOT NULL,
+    payload         JSONB NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'RECEIVED',
+    error_msg       TEXT,
+    fecha_recepcion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_envio     TIMESTAMP,
+    fecha_last_update TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_por VARCHAR(30) NOT NULL DEFAULT 'SYSTEM'
 );
+
+ALTER TABLE asyn_m.message_event
+ADD CONSTRAINT uk_event_source UNIQUE (id_event, source_system);
 
 
 CREATE TABLE asyn_m.dead_letter (
     id_dead             SERIAL PRIMARY KEY,
-    original_event_id   INTEGER REFERENCES asyn_m.message_event(id_event) ON DELETE SET NULL,
+    original_event_id   VARCHAR(50) NOT NULL,
+    source_system       VARCHAR(50) NOT NULL,
     queue_name          VARCHAR(100) NOT NULL,
     payload             JSONB NOT NULL,
     error_msg           TEXT NOT NULL,
-    retry_count         INTEGER DEFAULT 0 NOT NULL,
-    fecha_error         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    fecha_last_update   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    actualizado_por     VARCHAR(50) DEFAULT 'SYSTEM' NOT NULL
+    retry_count         INTEGER NOT NULL DEFAULT 0,
+    fecha_error         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_last_update   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_por     VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+    CONSTRAINT fk_dead_event
+        FOREIGN KEY (original_event_id, source_system)
+        REFERENCES asyn_m.message_event (id_event, source_system)
+        ON DELETE CASCADE
 );
 
-CREATE INDEX idx_message_event_status ON message_event(status);
+
+CREATE INDEX idx_message_event_status ON asyn_m.message_event(status);

@@ -15,6 +15,12 @@ services:
       - "5434:5432"
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_security"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 
   auth-security-svc:
     build:
@@ -24,7 +30,8 @@ services:
     ports:
       - "3004:3004"  # host:container
     depends_on:
-      - auth-security-db
+      auth-security-db:
+        condition: service_healthy
     env_file:
       - ./auth-security-svc/.env
     networks:

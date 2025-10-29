@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/FrancoRebollo/async-messaging-svc/internal/domain"
+	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
 	"github.com/streadway/amqp"
 )
 
@@ -18,7 +18,7 @@ type RabbitMQAdapter struct {
 	exchange string // e.g. "app_events"
 }
 
-func NewRabbitMQAdapter(amqpURL string) (*RabbitMQAdapter, error) {
+func NewRabbitMQAdapter(amqpURL, exchange string) (*RabbitMQAdapter, error) {
 	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)

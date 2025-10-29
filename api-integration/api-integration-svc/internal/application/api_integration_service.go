@@ -3,7 +3,9 @@ package application
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,26 +20,20 @@ import (
 type ApiIntegrationService struct {
 	hr         ports.ApiIntegrationRepository
 	conf       config.App
+	rmq        ports.MessageQueue
 	httpClient *http.Client
 }
 
-func NewApiIntegrationService(hr ports.ApiIntegrationRepository, conf config.App, httpClient *http.Client) *ApiIntegrationService {
+func NewApiIntegrationService(hr ports.ApiIntegrationRepository, conf config.App, rmq ports.MessageQueue, httpClient *http.Client) *ApiIntegrationService {
 	return &ApiIntegrationService{
 		hr,
 		conf,
+		rmq,
 		httpClient,
 	}
 }
 
-func (hs *ApiIntegrationService) CaptureEventAPI(ctx context.Context, reqCaptureEvent domain.Event) error {
-
-	if err := hs.hr.CaptureEvent(ctx, reqCaptureEvent); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *ApiIntegrationService) ForwardRequest(req domain.ExternalAPIRequest) (domain.ExternalAPIResponse, error) {
+func (hs *ApiIntegrationService) ForwardRequest(req domain.ExternalAPIRequest) (domain.ExternalAPIResponse, error) {
 	fullURL := req.URL
 
 	// Armar query params para GET
@@ -62,7 +58,7 @@ func (s *ApiIntegrationService) ForwardRequest(req domain.ExternalAPIRequest) (d
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := s.httpClient.Do(httpReq)
+	resp, err := hs.httpClient.Do(httpReq)
 	if err != nil {
 		return domain.ExternalAPIResponse{}, err
 	}
@@ -78,4 +74,37 @@ func (s *ApiIntegrationService) ForwardRequest(req domain.ExternalAPIRequest) (d
 		StatusCode: resp.StatusCode,
 		Data:       result,
 	}, nil
+}
+
+func (hs *ApiIntegrationService) PushEventToQueueAPI(ctx context.Context, event domain.Event) error {
+	fmt.Println("🧩 Iniciando transacción controlada para PushEventToQueueAPI...")
+
+	err := hs.hr.WithTransaction(ctx, func(tx *sql.Tx) error {
+		if err := hs.hr.PushEventToQueue(ctx, tx, event); err != nil {
+			if errors.Is(err, domain.ErrDuplicateEvent) {
+				fmt.Println("⚠️ Evento duplicado detectado, no se publicará en la cola")
+				// 👉 devolvemos nil para que NO haya rollback
+				return nil
+			}
+			return err
+		}
+
+		fmt.Println("✅ Evento persistido correctamente en DB")
+
+		if err := hs.rmq.Publish(ctx, event); err != nil {
+			fmt.Printf("❌ Error al publicar evento %s en cola: %v\n", event.ID, err)
+			return err // rollback automático
+		}
+
+		fmt.Println("📨 Evento publicado en RabbitMQ correctamente")
+		return nil
+	})
+
+	if err != nil {
+		fmt.Println("🔻 Transacción revertida por error")
+		return err
+	}
+
+	fmt.Println("✅ Transacción completada con éxito")
+	return nil
 }

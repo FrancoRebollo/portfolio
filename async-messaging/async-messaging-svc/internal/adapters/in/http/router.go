@@ -60,10 +60,6 @@ func NewRouter(
 		api.Group("/version").
 			GET("", versionHandler.GetVersion)
 
-		// Push Message
-		api.Group("/push-event").
-			POST("", messageHandler.PushEventToQueue)
-
 		// Healthcheck
 		api.Group("/healthcheck").
 			GET("", middlewares.ValidateGetHealthcheck, healthcheckHandler.GetHealthcheck)

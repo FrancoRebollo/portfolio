@@ -2,15 +2,21 @@ package ports
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
 )
 
 type ApiIntegrationService interface {
-	CaptureEventAPI(ctx context.Context, reqCaptureEvent domain.Event) error
 	ForwardRequest(req domain.ExternalAPIRequest) (domain.ExternalAPIResponse, error)
+	PushEventToQueueAPI(ctx context.Context, reqEvent domain.Event) error
 }
 
 type ApiIntegrationRepository interface {
-	CaptureEvent(ctx context.Context, reqCaptureEvent domain.Event) error
+	PushEventToQueue(ctx context.Context, tx *sql.Tx, event domain.Event) error
+	WithTransaction(ctx context.Context, fn func(tx *sql.Tx) error) error
+}
+
+type MessageQueue interface {
+	Publish(ctx context.Context, event domain.Event) error
 }

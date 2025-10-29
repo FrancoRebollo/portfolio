@@ -35,11 +35,19 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA api_int
 ALTER DEFAULT PRIVILEGES IN SCHEMA api_int
   GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO api_integration;
 
-CREATE TABLE api_int.event_example (
-  id_event_example  BIGINT PRIMARY KEY,       -- llega desde afuera
-  event_type        varchar(60)  NOT NULL,
-  event_content     varchar(60)  NOT NULL,
-  fecha_last_update timestamp    NOT NULL DEFAULT now(),
-  actualizado_por   varchar(30)  NOT NULL DEFAULT current_user,
-  CHECK (id_event_example > 0)                -- opcional, si siempre es positivo
+CREATE TABLE api_int.message_event (
+    id_event        VARCHAR(50) PRIMARY KEY,
+    source_system   VARCHAR(50) NOT NULL,
+    destiny_system      VARCHAR(50) NOT NULL,
+    payload         JSONB NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'RECEIVED',
+    error_msg       TEXT,
+    fecha_recepcion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_envio     TIMESTAMP,
+    fecha_last_update TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actualizado_por VARCHAR(30) NOT NULL DEFAULT 'SYSTEM'
 );
+
+ALTER TABLE api_int.message_event
+ADD CONSTRAINT uk_event_source UNIQUE (id_event, source_system);
+

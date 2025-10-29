@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type UserCreated struct {
 	IdPersona    int
 	CanalDigital string
@@ -87,4 +89,13 @@ type CredentialsToken struct {
 	CanalDigital string
 	AccessToken  string
 	RefreshToken string
+}
+
+type Event struct {
+	ID         string
+	Type       string
+	RoutingKey string
+	Origin     string
+	Timestamp  time.Time
+	Payload    interface{}
 }

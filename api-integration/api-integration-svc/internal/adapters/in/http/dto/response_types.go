@@ -9,3 +9,7 @@ type ExternalAPIResponse struct {
 	StatusCode int         `json:"status_code"`
 	Data       interface{} `json:"data"`
 }
+
+type ResponseDefault struct {
+	Message string `json:"message"`
+}

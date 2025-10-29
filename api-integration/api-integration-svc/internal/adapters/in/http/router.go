@@ -67,7 +67,7 @@ func NewRouter(
 
 	api_int := r.Group("/api-integration")
 	{
-		api_int.Group("/webhook/event").POST("", middlewares.SecurityMiddleware(), apiIntegrationHandler.CaptureEvent)
+		api_int.Group("/webhook/event").POST("", middlewares.SecurityMiddleware(), apiIntegrationHandler.PushEventToQueue)
 		api_int.Group("/external-api/request").POST("", middlewares.SecurityMiddleware(), apiIntegrationHandler.MakeRequest)
 	}
 

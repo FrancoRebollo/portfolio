@@ -2,6 +2,9 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 
 	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
 	"github.com/FrancoRebollo/api-integration-svc/internal/platform/logger"
@@ -59,17 +62,57 @@ func (hr *ApiIntegrationRepository) GetDatabasesPing(ctx context.Context) ([]dom
 	return databases, nil
 }
 
-func (hr *ApiIntegrationRepository) CaptureEvent(ctx context.Context, reqCaptureEvent domain.Event) error {
-	var idPersona int
+func (hr *ApiIntegrationRepository) PushEventToQueue(ctx context.Context, tx *sql.Tx, event domain.Event) error {
+	query := `
+		INSERT INTO asyn_m.message_event (
+			id_event,
+			source_system,
+			destiny_system,
+			payload,
+			status,
+			fecha_recepcion,
+			actualizado_por
+		)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
+		ON CONFLICT (id_event, source_system)
+		DO NOTHING;
+	`
 
-	insert := `INSERT INTO api_int.event_example 
-		(id_event_example,event_type,event_content,actualizado_por) VALUES ($1,$2,$3,$4,$5)`
+	payloadJSON, err := json.Marshal(event.Payload)
+	if err != nil {
+		return fmt.Errorf("error marshalling payload: %w", err)
+	}
 
-	_, err := hr.dbPost.GetDB().ExecContext(ctx, insert, reqCaptureEvent.IdEvent, reqCaptureEvent.EventType, reqCaptureEvent.EventContent, idPersona)
+	res, err := tx.ExecContext(ctx, query,
+		event.ID,
+		event.Origin,     // → source_system
+		event.RoutingKey, // → queue_name
+		payloadJSON,
+		"RECEIVED",
+		"SYSTEM",
+	)
+	if err != nil {
+		return fmt.Errorf("error inserting event: %w", err)
+	}
 
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return domain.ErrDuplicateEvent
+	}
+
+	return nil
+}
+
+func (hr *ApiIntegrationRepository) WithTransaction(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	tx, err := hr.dbPost.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
