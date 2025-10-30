@@ -64,7 +64,7 @@ func (hr *ApiIntegrationRepository) GetDatabasesPing(ctx context.Context) ([]dom
 
 func (hr *ApiIntegrationRepository) PushEventToQueue(ctx context.Context, tx *sql.Tx, event domain.Event) error {
 	query := `
-		INSERT INTO asyn_m.message_event (
+		INSERT INTO api_int.message_event (
 			id_event,
 			source_system,
 			destiny_system,

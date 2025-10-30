@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/FrancoRebollo/api-integration-svc/internal/domain"
@@ -39,7 +40,7 @@ func NewRabbitMQAdapter(amqpURL, exchange string) (*RabbitMQAdapter, error) {
 		conn:     conn,
 		pubCh:    pubCh,
 		conCh:    conCh,
-		exchange: "",
+		exchange: os.Getenv("RABBITMQ_QUEUE_EXCHANGE"),
 	}, nil
 }
 

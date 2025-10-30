@@ -3,6 +3,7 @@ package middlewares
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -53,7 +54,8 @@ func CancelCheckMiddleware() gin.HandlerFunc {
 func SecurityMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		accessToken := c.GetHeader("Authorization")
-
+		fmt.Println("En security middleware")
+		fmt.Println(accessToken)
 		if accessToken == "" {
 			c.JSON(http.StatusUnauthorized, domain.HealthcheckError{
 				Code:    domain.ErrCodeUnauthorized,
