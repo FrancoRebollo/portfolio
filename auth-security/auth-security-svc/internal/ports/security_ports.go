@@ -15,7 +15,7 @@ type SecurityService interface {
 	AccessApiKeyAPI(ctx context.Context, accessApiKey domain.AccessApiKey, apikey string) error
 	AccessPersonMethodAuthAPI(ctx context.Context, accesPerMethodAuth domain.AccessPersonMethodAuth, apikey string) error
 	LoginAPI(ctx context.Context, reqLogin domain.Login) (domain.UserStatus, error)
-	ValidateJWTAPI(ctx context.Context, jwt domain.JWT) error
+	ValidateJWTAPI(ctx context.Context, token string) (*domain.CheckJWT, error)
 	GetJWTAPI(ctx context.Context, refreshToken string, accessTokenParam string) (string, error)
 	CheckApiKeyExpiradaAPI(ctx context.Context, apiKey string) (bool, error)
 	RecuperacionPasswordAPI(ctx context.Context, recuperacionPassword dto.ReqRecoveryPasswordDos) error

@@ -39,7 +39,7 @@ func NewRabbitMQAdapter(amqpURL, exchange string) (*RabbitMQAdapter, error) {
 		conn:     conn,
 		pubCh:    pubCh,
 		conCh:    conCh,
-		exchange: "",
+		exchange: "app_events",
 	}, nil
 }
 

@@ -1,11 +1,14 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/FrancoRebollo/auth-security-svc/internal/adapters/in/http/dto"
 	"github.com/FrancoRebollo/auth-security-svc/internal/domain"
+	"github.com/FrancoRebollo/auth-security-svc/internal/platform/utils"
 
 	"github.com/FrancoRebollo/auth-security-svc/internal/ports"
 	"github.com/gin-gonic/gin"
@@ -253,31 +256,36 @@ func (hh *SecurityHandler) Login(c *gin.Context) {
 	c.JSON(200, domainUserStatus)
 }
 
-func (hh *SecurityHandler) ValidateJWT(c *gin.Context) {
+func (h *SecurityHandler) ValidateJWT(c *gin.Context) {
+	fmt.Println("Entra validate JWT handler")
+	var idPersona int
 
-	var reqValidateJwt dto.ReqValidateJWT
+	accessToken := c.GetHeader("Authorization")
+	accessBear := strings.TrimPrefix(accessToken, "Bearer ")
 
-	if err := c.BindJSON(&reqValidateJwt); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	claims, err := utils.GetClaimsFromToken(accessBear, "ACCESS")
+
+	switch v := claims["id_persona"].(type) {
+	case float64:
+		idPersona = int(v)
+	case int:
+		idPersona = v
+	case string:
+		idPersona, _ = strconv.Atoi(v)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to read claims"})
 		return
 	}
 
-	domainJWT := &domain.JWT{
-		JWT: reqValidateJwt.Jwt,
-	}
-
-	err := hh.serv.ValidateJWTAPI(c, *domainJWT)
+	checkJWTResponse, err := h.serv.ValidateJWTAPI(c, accessBear)
 
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": err.Error()})
-		return
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
 
-	resp := &dto.DefaultResponse{
-		Message: "Valid token",
-	}
+	checkJWTResponse.IdPersona = idPersona
 
-	c.JSON(200, resp)
+	c.JSON(200, checkJWTResponse)
 }
 
 func (h *SecurityHandler) GetJWT(c *gin.Context) {

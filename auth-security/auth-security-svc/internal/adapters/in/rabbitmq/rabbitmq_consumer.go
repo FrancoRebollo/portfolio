@@ -36,7 +36,7 @@ func (c *UserEventConsumer) Start(ctx context.Context, queue string) {
 			fmt.Printf("⚠️ Unknown routing key: %s (ignored)\n", evt.RoutingKey)
 		}
 	}
-
+	fmt.Println("STARTING CONSUMER")
 	if err := c.rabbit.Consume(ctx, queue, handler); err != nil {
 		fmt.Printf("❌ Error starting consumer: %v\n", err)
 	}
@@ -50,7 +50,11 @@ func (c *UserEventConsumer) handleUserCreated(ctx context.Context, evt domain.Ev
 		fmt.Printf("⚠️ Invalid payload for user.created: %v\n", err)
 		return
 	}
+	fmt.Println("calling from handleUserCreated")
+	fmt.Printf("DEBUG Payload type: %T\n", evt.Payload)
+	fmt.Printf("DEBUG Payload value: %+v\n", evt.Payload)
 
+	fmt.Printf("DEBUG payload value: %+v\n", payload)
 	if _, err := c.service.CreateUserAPI(ctx, payload); err != nil {
 		fmt.Printf("❌ Error creating user: %v\n", err)
 		return

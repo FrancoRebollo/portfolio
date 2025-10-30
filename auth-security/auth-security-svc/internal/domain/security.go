@@ -3,12 +3,12 @@ package domain
 import "time"
 
 type UserCreated struct {
-	IdPersona    int
-	CanalDigital string
-	LoginName    string
-	Password     string
-	MailPersona  string
-	TePersona    string
+	IdPersona    int    `json:"id_persona"`
+	CanalDigital string `json:"canal_digital"`
+	LoginName    string `json:"login_name"`
+	Password     string `json:"password"`
+	MailPersona  string `json:"mail_persona"`
+	TePersona    string `json:"tel_persona"`
 }
 
 type CanalDigital struct {

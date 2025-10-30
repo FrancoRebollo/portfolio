@@ -29,6 +29,8 @@ func NewSecurityService(hr ports.SecurityRepository, conf config.App) *SecurityS
 
 func (hs *SecurityService) CreateUserAPI(ctx context.Context, reqAltaUser domain.UserCreated) (*domain.UserCreated, error) {
 	//var serviceErr error
+	fmt.Println(reqAltaUser.CanalDigital)
+	fmt.Println(reqAltaUser.LoginName)
 	userCreated, err := hs.hr.CreateUser(ctx, reqAltaUser)
 
 	if err != nil {
@@ -176,15 +178,15 @@ func (s *SecurityService) LoginAPI(ctx context.Context, reqLogin domain.Login) (
 	return *resp, nil
 }
 
-func (s *SecurityService) ValidateJWTAPI(ctx context.Context, jwt domain.JWT) error {
+func (s *SecurityService) ValidateJWTAPI(ctx context.Context, token string) (*domain.CheckJWT, error) {
 
-	_, err := utils.CheckJWTAccessToken(jwt.JWT)
+	checkJWTResponse, err := utils.CheckJWTAccessToken(token)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return checkJWTResponse, nil
 }
 
 func (s *SecurityService) GetJWTAPI(ctx context.Context, refreshToken string, accessTokenParam string) (string, error) {
