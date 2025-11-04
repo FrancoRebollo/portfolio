@@ -8,7 +8,7 @@ import (
 )
 
 type SecurityService interface {
-	CreateUserAPI(ctx context.Context, reqAltaUser domain.UserCreated) (*domain.UserCreated, error)
+	CreateUserAPI(ctx context.Context, reqAltaUser *domain.UserCreated) (*domain.UserCreated, error)
 	CrearCanalDigitalAPI(ctx context.Context, crearCanalDigital domain.CanalDigital, apiKey string) error
 	AccessPersonAPI(ctx context.Context, accessPerson domain.AccessPerson, apikey string) error
 	AccessCanalDigitalAPI(ctx context.Context, accessCanaldigital domain.AccessCanalDigital, apikey string) error

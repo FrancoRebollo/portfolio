@@ -55,7 +55,7 @@ func (c *UserEventConsumer) handleUserCreated(ctx context.Context, evt domain.Ev
 	fmt.Printf("DEBUG Payload value: %+v\n", evt.Payload)
 
 	fmt.Printf("DEBUG payload value: %+v\n", payload)
-	if _, err := c.service.CreateUserAPI(ctx, payload); err != nil {
+	if _, err := c.service.CreateUserAPI(ctx, &payload); err != nil {
 		fmt.Printf("❌ Error creating user: %v\n", err)
 		return
 	}
