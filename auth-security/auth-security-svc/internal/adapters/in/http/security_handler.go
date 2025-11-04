@@ -15,12 +15,14 @@ import (
 )
 
 type SecurityHandler struct {
-	serv ports.SecurityService
+	serv        ports.SecurityService
+	tokenParser utils.TokenParser
 }
 
-func NewSecurityHandler(serv ports.SecurityService) *SecurityHandler {
+func NewSecurityHandler(serv ports.SecurityService, tokParser utils.TokenParser) *SecurityHandler {
 	return &SecurityHandler{
 		serv,
+		tokParser,
 	}
 }
 
@@ -263,7 +265,7 @@ func (h *SecurityHandler) ValidateJWT(c *gin.Context) {
 	accessToken := c.GetHeader("Authorization")
 	accessBear := strings.TrimPrefix(accessToken, "Bearer ")
 
-	claims, err := utils.GetClaimsFromToken(accessBear, "ACCESS")
+	claims, err := h.tokenParser.GetClaims(accessBear, "ACCESS")
 
 	switch v := claims["id_persona"].(type) {
 	case float64:

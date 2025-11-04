@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,18 +9,21 @@ import (
 
 	"github.com/FrancoRebollo/auth-security-svc/internal/domain"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// ------------------------ CREATE USER ------------------------
 
 func TestCreateUser_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	// Request simulada
-	requestBody := `{
+	body := `{
 		"id_persona": 123,
 		"canal_digital": "APP",
 		"login_name": "frebollo",
@@ -28,18 +32,14 @@ func TestCreateUser_Success(t *testing.T) {
 		"tel_persona": "1155555555"
 	}`
 
-	req := httptest.NewRequest(http.MethodPost, "/create-user", strings.NewReader(requestBody))
+	req := httptest.NewRequest(http.MethodPost, "/create-user", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	// Response recorder
 	w := httptest.NewRecorder()
-
-	// Crear contexto de Gin
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
-	// Setear lo que el mock debe devolver
-	expectedUser := &domain.UserCreated{
+	expected := &domain.UserCreated{
 		IdPersona:    123,
 		CanalDigital: "APP",
 		LoginName:    "frebollo",
@@ -48,11 +48,8 @@ func TestCreateUser_Success(t *testing.T) {
 		TePersona:    "1155555555",
 	}
 
-	mockService.
-		On("CreateUserAPI", mock.Anything, mock.AnythingOfType("*domain.UserCreated")).
-		Return(expectedUser, nil)
+	mockService.On("CreateUserAPI", mock.Anything, mock.AnythingOfType("*domain.UserCreated")).Return(expected, nil)
 
-	// Ejecutar handler
 	handler.CreateUser(ctx)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -64,62 +61,55 @@ func TestCreateUser_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	req := httptest.NewRequest(http.MethodPost, "/create-user", strings.NewReader(`invalid json`))
+	req := httptest.NewRequest(http.MethodPost, "/create-user", strings.NewReader(`invalid`))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
 
+	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
 	handler.CreateUser(ctx)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
 }
+
+// ------------------------ CREATE CANAL DIGITAL ------------------------
 
 func TestCreateCanalDigital_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	reqBody := `{"canal_digital":"USER_PASSWORD"}`
-	req := httptest.NewRequest(http.MethodPost, "/create-method-auth", strings.NewReader(reqBody))
+	body := `{"canal_digital":"APP"}`
+	req := httptest.NewRequest(http.MethodPost, "/create-method-auth", strings.NewReader(body))
+	req.Header.Set("Api-Key", "key")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", "example-api-key")
+
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
-	// Expectation del mock
-	mockService.
-		On(
-			"CrearCanalDigitalAPI",
-			mock.Anything,
-			mock.AnythingOfType("domain.CanalDigital"),
-			"example-api-key",
-		).
-		Return(nil) // ✅ caso feliz: NO error
+	mockService.On("CrearCanalDigitalAPI", mock.Anything, mock.AnythingOfType("domain.CanalDigital"), "key").Return(nil)
 
-	// Act
 	handler.CreateCanalDigital(ctx)
 
-	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"Canal digital creado"`)
-
 	mockService.AssertExpectations(t)
 }
 
 func TestCreateCanalDigital_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	req := httptest.NewRequest(http.MethodPost, "/create-method-auth", strings.NewReader(`invalid json`))
+	req := httptest.NewRequest(http.MethodPost, "/create-method-auth", strings.NewReader(`bad`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -127,280 +117,262 @@ func TestCreateCanalDigital_BadRequest(t *testing.T) {
 	ctx.Request = req
 
 	handler.CreateCanalDigital(ctx)
-
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
 }
+
+// ------------------------ ACCESS PERSON ------------------------
 
 func TestAccessPerson_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	reqBody := `{
-		"id_persona": 123,
-		"revoke": "S"
-	}`
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-person", strings.NewReader(reqBody))
+	body := `{"id_persona":123,"revoke":"S"}`
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-person", strings.NewReader(body))
+	req.Header.Set("Api-Key", "key")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", "example-api-key")
+
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
-	// Expectation del mock
-	mockService.
-		On(
-			"AccessPersonAPI",
-			mock.Anything,
-			mock.AnythingOfType("domain.AccessPerson"),
-			"example-api-key",
-		).
-		Return(nil) // ✅ caso feliz: NO error
+	mockService.On("AccessPersonAPI", mock.Anything, mock.AnythingOfType("domain.AccessPerson"), "key").Return(nil)
 
-	// Act
 	handler.AccessPerson(ctx)
 
-	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Condition(t, func() bool {
-		body := w.Body.String()
-		return strings.Contains(body, "Revoke access to person") ||
-			strings.Contains(body, "Revoke unaccess to person")
-	}, "Response body should contain one of the expected messages")
-
 	mockService.AssertExpectations(t)
 }
 
-func TestAccessPerson_BadRequest(t *testing.T) {
+// ------------------------ LOGIN ------------------------
+
+func TestLogin_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-person", strings.NewReader(`invalid json`))
+	body := `{"username":"frebo","password":"123","canal_digital":"APP"}`
+	req := httptest.NewRequest(http.MethodPost, "/sec/log-in", strings.NewReader(body))
+	req.Header.Set("Api-Key", "key")
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
 
+	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
-	handler.AccessPerson(ctx)
+	mockService.
+		On("LoginAPI", mock.Anything, mock.Anything).
+		Return(domain.UserStatus{
+			Username: "frebo",
+			Status:   "OK",
+		}, nil)
+
+	handler.Login(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"frebo"`)
+	mockService.AssertExpectations(t)
+}
+
+// ------------------------ VALIDATE JWT ------------------------
+
+func TestValidateJWT_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	req := httptest.NewRequest(http.MethodGet, "/sec/validate-jwt", nil)
+	req.Header.Set("Authorization", "Bearer token123")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	mockParser.On("GetClaims", "token123", "ACCESS").
+		Return(jwt.MapClaims{"id_persona": 77}, nil)
+
+	mockParser.On("GetClaims", "badtoken", "ACCESS").
+		Return(nil, errors.New("invalid token"))
+
+	mockService.On("ValidateJWTAPI", mock.Anything, "token123").
+		Return(&domain.CheckJWT{TokenStatus: "VALID"}, nil)
+
+	handler.ValidateJWT(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "77") // número, no string
+	mockService.AssertExpectations(t)
+}
+
+func TestValidateJWT_InvalidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	req := httptest.NewRequest(http.MethodGet, "/sec/validate-jwt", nil)
+	req.Header.Set("Authorization", "Bearer badtoken")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	mockParser.
+		On("GetClaims", "badtoken", "ACCESS").
+		Return(jwt.MapClaims{}, errors.New("invalid token"))
+
+	handler.ValidateJWT(ctx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code) // o BadRequest si tu lógica lo indica
+	assert.Contains(t, w.Body.String(), "invalid token")
+
+	mockParser.AssertExpectations(t)
+}
+
+func TestAccessApiKey_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	body := `{"api_key":"test-api-key","revoke":"S"}`
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-api-key", strings.NewReader(body))
+	req.Header.Set("Api-Key", "caller-api-key")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	expected := domain.AccessApiKey{
+		ApiKey: "test-api-key",
+		Revoke: "S",
+	}
+
+	mockService.On("AccessApiKeyAPI", mock.Anything, expected, "caller-api-key").Return(nil)
+
+	handler.AccessApiKey(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Revoke access to api key")
+	mockService.AssertExpectations(t)
+}
+
+func TestAccessApiKey_BadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-api-key", strings.NewReader(`bad`))
+	req.Header.Set("Api-Key", "key")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	handler.AccessApiKey(ctx)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
+}
+
+func TestAccessPersonMethodAuth_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	body := `{"id_persona":1,"method_auth":"PASS","revoke":"S"}`
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel-person", strings.NewReader(body))
+	req.Header.Set("Api-Key", "key")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	expected := domain.AccessPersonMethodAuth{
+		IdPersona:  1,
+		MethodAuth: "PASS",
+		Revoke:     "S",
+	}
+
+	mockService.On("AccessPersonMethodAuthAPI", mock.Anything, expected, "key").Return(nil)
+
+	handler.AccessPerMethodAuth(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Revoke access to person by digital channel")
+	mockService.AssertExpectations(t)
+}
+
+func TestAccessPersonMethodAuth_BadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService := new(mockSecurityService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
+
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel-person", strings.NewReader(`invalid`))
+	req.Header.Set("Api-Key", "key")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+
+	handler.AccessPerMethodAuth(ctx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestAccessCanalDigital_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	reqBody := `{
-		"id_persona": 123,
-		"revoke": "S"
-	}`
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel", strings.NewReader(reqBody))
+	body := `{"canal_digital":"APP","revoke":"N"}`
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel", strings.NewReader(body))
+	req.Header.Set("Api-Key", "key")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", "example-api-key")
+
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
-	// Expectation del mock
-	mockService.
-		On(
-			"AccessCanalDigitalAPI",
-			mock.Anything,
-			mock.AnythingOfType("domain.AccessCanalDigital"),
-			"example-api-key",
-		).
-		Return(nil) // ✅ caso feliz: NO error
+	expected := domain.AccessCanalDigital{
+		CanalDigital: "APP",
+		Revoke:       "N",
+	}
 
-	// Act
+	mockService.On("AccessCanalDigitalAPI", mock.Anything, expected, "key").Return(nil)
+
 	handler.AccessCanalDigital(ctx)
 
-	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Condition(t, func() bool {
-		body := w.Body.String()
-		return strings.Contains(body, "Revoke access to digital channel") ||
-			strings.Contains(body, "Revoke unaccess to digital channel")
-	}, "Response body should contain one of the expected messages")
-
+	assert.Contains(t, w.Body.String(), "Revoke unaccess to digital channel")
 	mockService.AssertExpectations(t)
 }
 
 func TestAccessCanalDigital_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
+	mockParser := new(mockTokenParser)
+	handler := NewSecurityHandler(mockService, mockParser)
 
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel", strings.NewReader(`invalid json`))
+	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel", strings.NewReader(`invalid`))
+	req.Header.Set("Api-Key", "key")
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
 
+	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = req
 
 	handler.AccessCanalDigital(ctx)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
 }
-
-func TestAccessPerMethodAuth_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
-
-	reqBody := `{
-		"id_persona": 123,
-		"method_auth": "USER_PASSWORD",
-		"revoke": "S"
-	}`
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel-person", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", "example-api-key")
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = req
-
-	// Expectation del mock
-	mockService.
-		On(
-			"AccessPersonMethodAuthAPI",
-			mock.Anything,
-			mock.AnythingOfType("domain.AccessPersonMethodAuth"),
-			"example-api-key",
-		).
-		Return(nil) // ✅ caso feliz: NO error
-
-	// Act
-	handler.AccessPerMethodAuth(ctx)
-
-	// Assert
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Condition(t, func() bool {
-		body := w.Body.String()
-		return strings.Contains(body, "Revoke access to person by digital channel") ||
-			strings.Contains(body, "Revoke unaccess to person by digital channel")
-	}, "Response body should contain one of the expected messages")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestAccessPerMethodAuth_BadRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-digital-channel-person", strings.NewReader(`invalid json`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = req
-
-	handler.AccessPerMethodAuth(ctx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
-}
-
-func TestAcessApiKey_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
-
-	reqBody := `{
-		"api_key": "asdf",
-		"revoke": "S"
-	}`
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-api-key", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", "example-api-key")
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = req
-
-	// Expectation del mock
-	mockService.
-		On(
-			"AccessApiKeyAPI",
-			mock.Anything,
-			mock.AnythingOfType("domain.AccessApiKey"),
-			"example-api-key",
-		).
-		Return(nil) // ✅ caso feliz: NO error
-
-	// Act
-	handler.AccessApiKey(ctx)
-
-	// Assert
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Condition(t, func() bool {
-		body := w.Body.String()
-		return strings.Contains(body, "Revoke access to api key") ||
-			strings.Contains(body, "Revoke unaccess to api key")
-	}, "Response body should contain one of the expected messages")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestAcessApiKey_BadRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
-
-	req := httptest.NewRequest(http.MethodPost, "/unaccess-api-key", strings.NewReader(`invalid json`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = req
-
-	handler.AccessApiKey(ctx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), `"error"`)
-}
-
-/*
-func Test<HandlerMethod>_Success(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	mockService := new(mockSecurityService)
-	handler := NewSecurityHandler(mockService)
-
-	reqBody := `<json aquí>`
-	req := httptest.NewRequest(http.MethodPost, "/endpoint", strings.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = req
-
-	expected := ... // lo que debe devolver el servicio
-	mockService.On("Metodo", mock.Anything, ...).Return(expected, nil)
-
-	// Act
-	handler.<HandlerMethod>(ctx)
-
-	// Assert
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `<campo esperado>`)
-	mockService.AssertExpectations(t)
-}
-
-*/

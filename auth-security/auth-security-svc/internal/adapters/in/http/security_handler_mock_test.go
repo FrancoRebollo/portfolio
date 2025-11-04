@@ -5,11 +5,21 @@ import (
 
 	"github.com/FrancoRebollo/auth-security-svc/internal/adapters/in/http/dto"
 	"github.com/FrancoRebollo/auth-security-svc/internal/domain"
+	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/mock"
 )
 
 type mockSecurityService struct {
 	mock.Mock
+}
+
+type mockTokenParser struct {
+	mock.Mock
+}
+
+func (m *mockTokenParser) GetClaims(token string, tokenType string) (jwt.MapClaims, error) {
+	args := m.Called(token, tokenType)
+	return args.Get(0).(jwt.MapClaims), args.Error(1)
 }
 
 func (m *mockSecurityService) CreateUserAPI(ctx context.Context, req *domain.UserCreated) (*domain.UserCreated, error) {
@@ -40,11 +50,13 @@ func (m *mockSecurityService) AccessPersonMethodAuthAPI(ctx context.Context, req
 	args := m.Called(ctx, req, apiKey)
 	return args.Error(0)
 }
-func (m *mockSecurityService) LoginAPI(context.Context, domain.Login) (domain.UserStatus, error) {
-	return domain.UserStatus{}, nil
+func (m *mockSecurityService) LoginAPI(ctx context.Context, req domain.Login) (domain.UserStatus, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(domain.UserStatus), args.Error(1)
 }
-func (m *mockSecurityService) ValidateJWTAPI(context.Context, string) (*domain.CheckJWT, error) {
-	return &domain.CheckJWT{}, nil
+func (m *mockSecurityService) ValidateJWTAPI(ctx context.Context, req string) (*domain.CheckJWT, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*domain.CheckJWT), args.Error(1)
 }
 func (m *mockSecurityService) GetJWTAPI(context.Context, string, string) (string, error) {
 	return "", nil

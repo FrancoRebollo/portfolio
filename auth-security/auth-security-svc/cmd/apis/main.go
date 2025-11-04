@@ -17,6 +17,7 @@ import (
 	"github.com/FrancoRebollo/auth-security-svc/internal/application"
 	"github.com/FrancoRebollo/auth-security-svc/internal/platform/config"
 	"github.com/FrancoRebollo/auth-security-svc/internal/platform/logger"
+	"github.com/FrancoRebollo/auth-security-svc/internal/platform/utils"
 )
 
 func main() {
@@ -61,10 +62,11 @@ func main() {
 	healthcheckService := application.NewHealthcheckService(healthcheckRepository, *cfg.App)
 	securityService := application.NewSecurityService(securityRepository, *cfg.App)
 
+	tokenParser := utils.RealTokenParser{}
 	// 6️⃣ Handlers HTTP (inbound adapters)
 	versionHandler := httpin.NewVersionHandler(versionService)
 	healthcheckHandler := httpin.NewHealthcheckHandler(healthcheckService)
-	securityHandler := httpin.NewSecurityHandler(securityService)
+	securityHandler := httpin.NewSecurityHandler(securityService, tokenParser)
 
 	// 7️⃣ Iniciar consumer RabbitMQ 🧠 NUEVO BLOQUE
 	ctx, cancel := context.WithCancel(context.Background())

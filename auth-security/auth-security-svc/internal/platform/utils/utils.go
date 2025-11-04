@@ -24,6 +24,16 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+type TokenParser interface {
+	GetClaims(token string, tokenType string) (jwt.MapClaims, error)
+}
+
+type RealTokenParser struct{}
+
+func (RealTokenParser) GetClaims(token string, tokenType string) (jwt.MapClaims, error) {
+	return GetClaimsFromToken(token, tokenType)
+}
+
 func JWTCreate(duration int, credentials domain.Credentials, tokenType string) (string, error) {
 	var tokenSeed string
 	expiresAt := time.Now().Add(time.Minute * time.Duration(duration)).Unix()
