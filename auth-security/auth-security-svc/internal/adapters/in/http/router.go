@@ -80,7 +80,7 @@ func NewRouter(
 		adm.Group("/unaccess-person").POST("", securityHandler.AccessPerson)
 		adm.Group("/unaccess-digital-channel").POST("", securityHandler.AccessCanalDigital)
 		adm.Group("/unaccess-digital-channel-person").POST("", securityHandler.CreateCanalDigital)
-		adm.Group("/unaccess-api-key").POST("", securityHandler.AcessApiKey)
+		adm.Group("/unaccess-api-key").POST("", securityHandler.AccessApiKey)
 	}
 
 	// 404

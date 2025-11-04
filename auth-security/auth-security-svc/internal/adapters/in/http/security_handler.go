@@ -43,7 +43,7 @@ func (hh *SecurityHandler) CreateUser(c *gin.Context) {
 		TePersona:    altaUser.TePersona,
 	}
 
-	userCreated, err := hh.serv.CreateUserAPI(ctx, domainUser)
+	userCreated, err := hh.serv.CreateUserAPI(ctx, &domainUser)
 	if err != nil {
 		/*
 			logger.LoggerError().Error(err)
@@ -155,7 +155,7 @@ func (hh *SecurityHandler) AccessCanalDigital(c *gin.Context) {
 	c.JSON(200, resp)
 }
 
-func (hh *SecurityHandler) AcessApiKey(c *gin.Context) {
+func (hh *SecurityHandler) AccessApiKey(c *gin.Context) {
 	var accessApiKey dto.ReqAccessApiKey
 
 	apiKey := c.GetHeader("Api-Key")
