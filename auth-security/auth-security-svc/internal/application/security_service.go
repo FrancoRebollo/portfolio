@@ -29,8 +29,8 @@ func NewSecurityService(hr ports.SecurityRepository, conf config.App) *SecurityS
 
 func (hs *SecurityService) CreateUserAPI(ctx context.Context, reqAltaUser *domain.UserCreated) (*domain.UserCreated, error) {
 	//var serviceErr error
-	fmt.Println(reqAltaUser.CanalDigital)
-	fmt.Println(reqAltaUser.LoginName)
+	//fmt.Println(reqAltaUser.CanalDigital)
+	//fmt.Println(reqAltaUser.LoginName)
 	userCreated, err := hs.hr.CreateUser(ctx, *reqAltaUser)
 
 	if err != nil {
@@ -39,7 +39,7 @@ func (hs *SecurityService) CreateUserAPI(ctx context.Context, reqAltaUser *domai
 			logger.LoggerError().WithError(err).Error(serviceErr)
 			return &domain.UserCreated{}, serviceErr
 		*/
-		return &domain.UserCreated{}, err
+		return nil, err
 	}
 
 	return userCreated, nil

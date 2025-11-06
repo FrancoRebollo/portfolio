@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -52,6 +53,10 @@ func JWTCreate(duration int, credentials domain.Credentials, tokenType string) (
 
 	if tokenType == "REFRESH" {
 		tokenSeed = os.Getenv("JWT_REFRESH_SEED")
+	}
+
+	if len(tokenSeed) != 16 && len(tokenSeed) != 24 && len(tokenSeed) != 32 {
+		log.Fatalf("❌ JWT_ACCESS_SEED tiene longitud inválida: %d", len(tokenSeed))
 	}
 
 	tokenString, err := token.SignedString([]byte(tokenSeed))

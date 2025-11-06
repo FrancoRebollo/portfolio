@@ -1,0 +1,51 @@
+name: CI Pipeline
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      # 2. Setup Go
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      # 3. Cache Go modules
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: go mod download
+
+      # 5. Lint / vet
+      - name: Run go vet
+        run: go vet ./...
+
+      # 6. Build
+      - name: Build
+        run: go build ./...
+
+      # 7. Run tests
+      - name: Run unit tests
+        env:
+          JWT_ACCESS_SEED: "1234567890123456"
+          JWT_REFRESH_SEED: "6543210987654321"
+          REF_TOKEN_DURATION: "1440"
+        run: go test -v -race ./...

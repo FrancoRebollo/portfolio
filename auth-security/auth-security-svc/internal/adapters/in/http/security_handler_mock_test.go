@@ -61,9 +61,12 @@ func (m *mockSecurityService) ValidateJWTAPI(ctx context.Context, req string) (*
 func (m *mockSecurityService) GetJWTAPI(context.Context, string, string) (string, error) {
 	return "", nil
 }
-func (m *mockSecurityService) CheckApiKeyExpiradaAPI(context.Context, string) (bool, error) {
-	return false, nil
+func (m *mockSecurityService) CheckApiKeyExpiradaAPI(ctx context.Context, apiKey string) (bool, error) {
+	args := m.Called(ctx, apiKey)
+	return args.Bool(0), args.Error(1)
 }
-func (m *mockSecurityService) RecuperacionPasswordAPI(context.Context, dto.ReqRecoveryPasswordDos) error {
-	return nil
+
+func (m *mockSecurityService) RecuperacionPasswordAPI(ctx context.Context, req dto.ReqRecoveryPasswordDos) error {
+	args := m.Called(ctx, req)
+	return args.Error(0)
 }
